@@ -1,0 +1,254 @@
+Metadata:
+  Author: https://github.com/johnpreston
+Description:
+  Template with shared resources for Codepipeline across AWS Accounts
+Parameters:
+  ProdAccountPipelineRoleId:
+    Type: String
+    Default: <none>
+  ProdAccountCfnRoleId:
+    Type: String
+    Default: <none>
+  DevAccountPipelineRoleId:
+    Type: String
+    Default: <none>
+  DevAccountCfnRoleId:
+    Type: String
+    Default: <none>
+  DevAccountCodebuildRoleId:
+    Type: String
+    Default: <none>
+
+  ArtifactsBucketPrefix:
+    Type: String
+    Default: codepipeline
+    Description: Prefix for the s3 bucket storing CodePipeline artifacts
+    AllowedPattern: '[a-z0-9-.]+'
+  TemplatesBucketPrefix:
+    Type: String
+    Default: cfn-templates
+    Description: Prefix for the s3 bucket storing CloudFormation templates
+    AllowedPattern: '[a-z0-9-.]+'
+
+Conditions:
+  NoProdAccountRoleId:
+    Fn::Equals:
+      - !Ref ProdAccountPipelineRoleId
+      - '<none>'
+
+  NoProdAccountCfnRoleId:
+    Fn::Equals:
+      - !Ref ProdAccountCfnRoleId
+      - '<none>'
+
+  NoDevAccountRoleId:
+    Fn::Equals:
+      - !Ref DevAccountPipelineRoleId
+      - '<none>'
+
+  NoDevAccountCfnRoleId:
+    Fn::Equals:
+      - !Ref DevAccountCfnRoleId
+      - '<none>'
+
+  NoNonProdCodebuilRoleCondition: !Equals
+    - !Ref DevAccountCodebuildRoleId
+    - '<none>'
+
+  ProdPresentCondition: !And
+    - !Not
+      - !Condition NoProdAccountRoleId
+    - !Not
+      - !Condition NoProdAccountCfnRoleId
+
+  NonProdPresentCondition: !And
+    - !Not
+      - !Condition NoDevAccountRoleId
+    - !Not
+      - !Condition NoDevAccountCfnRoleId
+    - !Not
+      - !Condition NoNonProdCodebuilRoleCondition
+
+  CreateBucketPolicyCondition: !Or
+    - !Condition ProdPresentCondition
+    - !Condition NonProdPresentCondition
+
+Resources:
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub '${ArtifactsBucketPrefix}.${AWS::AccountId}.${AWS::Region}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !ImportValue "CICD::mgmt::KMS::Key::Arn"
+              SSEAlgorithm: aws:kms
+
+  ArtifactsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ArtifactsBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Deny
+            Resource:
+              - !Sub '${ArtifactsBucket.Arn}/*'
+            Action:
+              - 's3:*'
+            Principal: '*'
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+          - Fn::If:
+            - ProdPresentCondition
+            - Effect: Allow
+              Resource: !Sub '${ArtifactsBucket.Arn}/*'
+              Action:
+                - s3:GetObject*
+                - s3:PutObject*
+              Principal:
+                AWS:
+                  - !Ref ProdAccountPipelineRoleId
+                  - !Ref ProdAccountCfnRoleId
+            - !Ref "AWS::NoValue"
+          - Fn::If:
+              - ProdPresentCondition
+              - Effect: Allow
+                Resource: !Sub '${ArtifactsBucket.Arn}'
+                Action:
+                  - s3:ListBucket
+                  - s3:GetBucket*
+                Principal:
+                  AWS:
+                    - !Ref ProdAccountPipelineRoleId
+                    - !Ref ProdAccountCfnRoleId
+              - !Ref "AWS::NoValue"
+
+          - Fn::If:
+              - NonProdPresentCondition
+              - Effect: Allow
+                Resource: !Sub '${ArtifactsBucket.Arn}/*'
+                Action:
+                  - s3:GetObject*
+                  - s3:PutObject*
+                Principal:
+                  AWS:
+                    - !Ref DevAccountCodebuildRoleId
+                    - !Ref DevAccountCfnRoleId
+                    - !Ref DevAccountPipelineRoleId
+              - !Ref "AWS::NoValue"
+          - Fn::If:
+              - NonProdPresentCondition
+              - Effect: Allow
+                Resource: !Sub '${ArtifactsBucket.Arn}'
+                Action:
+                  - s3:ListBucket
+                  - s3:GetBucket*
+                Principal:
+                  AWS:
+                    - !Ref DevAccountCodebuildRoleId
+                    - !Ref DevAccountCfnRoleId
+                    - !Ref DevAccountPipelineRoleId
+              - !Ref "AWS::NoValue"
+
+  CloudformationTemplatesBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub '${TemplatesBucketPrefix}.${AWS::AccountId}.${AWS::Region}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !ImportValue "CICD::mgmt::KMS::Key::Arn"
+              SSEAlgorithm: aws:kms
+
+  CloudFormationBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+#    Condition: CreateBucketPolicyCondition
+    Properties:
+      Bucket: !Ref CloudformationTemplatesBucket
+      PolicyDocument:
+        Id: Policy1553183091390
+        Version: 2012-10-17
+        Statement:
+          - Effect: Deny
+            Resource:
+              - !Sub '${CloudformationTemplatesBucket.Arn}/*'
+            Action:
+              - 's3:*'
+            Principal: '*'
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+          - Fn::If:
+            - ProdPresentCondition
+            - Effect: Allow
+              Resource: !Sub '${CloudformationTemplatesBucket.Arn}/*'
+              Action:
+                - s3:GetObject*
+                - s3:PutObject*
+              Principal:
+                AWS:
+                  - !Ref ProdAccountPipelineRoleId
+                  - !Ref ProdAccountCfnRoleId
+            - !Ref "AWS::NoValue"
+          - Fn::If:
+              - ProdPresentCondition
+              - Effect: Allow
+                Resource: !Sub '${CloudformationTemplatesBucket.Arn}'
+                Action:
+                  - s3:ListBucket
+                  - s3:GetBucket*
+                Principal:
+                  AWS:
+                    - !Ref ProdAccountPipelineRoleId
+                    - !Ref ProdAccountCfnRoleId
+              - !Ref "AWS::NoValue"
+
+          - Fn::If:
+              - NonProdPresentCondition
+              - Effect: Allow
+                Resource: !Sub '${CloudformationTemplatesBucket.Arn}/*'
+                Action:
+                  - s3:GetObject*
+                  - s3:PutObject*
+                Principal:
+                  AWS:
+                    - !Ref DevAccountCodebuildRoleId
+                    - !Ref DevAccountCfnRoleId
+                    - !Ref DevAccountPipelineRoleId
+              - !Ref "AWS::NoValue"
+          - Fn::If:
+              - NonProdPresentCondition
+              - Effect: Allow
+                Resource: !Sub '${CloudformationTemplatesBucket.Arn}'
+                Action:
+                  - s3:ListBucket
+                  - s3:GetBucket*
+                Principal:
+                  AWS:
+                    - !Ref DevAccountCodebuildRoleId
+                    - !Ref DevAccountCfnRoleId
+                    - !Ref DevAccountPipelineRoleId
+              - !Ref "AWS::NoValue"
+
+Outputs:
+  ArtifactsBucket:
+    Value: !Ref ArtifactsBucket
+    Export:
+      Name: 'CICD::mgmt::Bucket::Artifacts::Name'
+  ArtifactsTemplatesBucketArn:
+    Value: !Sub 'arn:${AWS::Partition}:s3:::${ArtifactsBucket}'
+    Export:
+      Name: "CICD::mgmt::Bucket::Artifacts::Arn"
+
+  CloudformationTemplatesBucket:
+    Value: !Ref CloudformationTemplatesBucket
+    Export:
+      Name: "CICD::mgmt::Bucket::CfnTemplates::Name"
+
+  CloudformationTemplatesBucketArn:
+    Value: !Sub 'arn:${AWS::Partition}:s3:::${CloudformationTemplatesBucket}'
+    Export:
+      Name: "CICD::mgmt::Bucket::CfnTemplates::Arn"

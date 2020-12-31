@@ -1,0 +1,62 @@
+---
+# MonoRepo multi services
+
+version: "3.8"
+services:
+  rproxy:
+    build:
+      context: ./reverse_proxy
+      dockerfile: Dockerfile
+    ports:
+      - 80:80
+      - 443:443
+    image: ${REGISTRY_URI:-public.ecr.aws/w1m2m2a3/}blog-rproxy:${IMAGE_TAG:-latest}
+
+
+  app01:
+    image: ${REGISTRY_URI:-public.ecr.aws/w1m2m2a3/}blog-app01:${IMAGE_TAG:-latest}
+    build:
+      context: ./app01
+      dockerfile: Dockerfile
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: ".5"
+        reservations:
+          memory: 128MB
+          cpus: "0.25"
+    ports:
+    - 5000:5000
+
+  app02:
+    image: ${REGISTRY_URI:-public.ecr.aws/w1m2m2a3/}blog-app02:${IMAGE_TAG:-latest}
+    build:
+      context: ./app02
+#      dockerfile: Dockerfile
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: ".5"
+        reservations:
+          memory: 128MB
+          cpus: "0.25"
+    ports:
+    - 5000:5000
+
+  app03:
+    image: ${REGISTRY_URI:-public.ecr.aws/w1m2m2a3/}blog-app02${IMAGE_TAG:-latest}
+    build:
+      context: ./app02
+#      dockerfile: Dockerfile
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: ".5"
+        reservations:
+          memory: 128MB
+          cpus: "0.25"
+    ports:
+    - 5000:5000

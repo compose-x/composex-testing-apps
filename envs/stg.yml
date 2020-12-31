@@ -1,0 +1,7 @@
+---
+# Docker compose override file for AWS dev environment
+
+x-tags:
+  costcentre: lambda-my-aws
+  project: apps-functional-testing
+  environment: stg

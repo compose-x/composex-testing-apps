@@ -1,0 +1,6 @@
+flask
+boto3
+Werkzeug
+aws-xray-sdk
+requests
+codeguru_profiler_agent

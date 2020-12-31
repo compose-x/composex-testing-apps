@@ -1,0 +1,94 @@
+Description:
+  Template to pre-define Management(central) account where the pipeline is deployed into.
+  Creates SSM Parameters as we require some resources to be created, but, we only really want the Exports.
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Management account settings.
+        Parameters:
+          - ManagementAccountId
+      - Label:
+          default: CICD Settings
+        Parameters:
+          - ManagementCicdKmsKeyArn
+          - ManagementCicdArtifactsBucketName
+          - ManagementCicdCfnTemplatesBucketName
+      - Label:
+          default: Default settings. Do not change.
+        Parameters:
+          - SsmParameterPrefixShared
+
+Parameters:
+  ManagementAccountId:
+    Type: String
+    AllowedPattern: '[0-9]{12}'
+  ManagementCicdKmsKeyArn:
+    Type: String
+  ManagementCicdArtifactsBucketName:
+    Type: String
+  ManagementCicdCfnTemplatesBucketName:
+    Type: String
+  SsmParameterPrefixShared:
+    Type: String
+    Default: /cicd/mgmt
+
+Resources:
+  SsmManagementAccountId:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "${SsmParameterPrefixShared}/accounts/mgmt/account/id"
+      Value: !Ref ManagementAccountId
+      Type: String
+
+  ArtifactsBucketSssm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "${SsmParameterPrefixShared}/s3/artifacts/name"
+      Value: !Ref ManagementCicdArtifactsBucketName
+      Type: String
+
+  TemplateBucketSssm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "${SsmParameterPrefixShared}/s3/templates/name"
+      Value: !Ref ManagementCicdCfnTemplatesBucketName
+      Type: String
+
+  KmsKeyArnInSsm:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "${SsmParameterPrefixShared}/KMS/KeyArn"
+      Value: !Ref ManagementCicdKmsKeyArn
+      Type: String
+
+Outputs:
+  ManagementAccountId:
+    Value: !Ref ManagementAccountId
+    Export:
+      Name: "CICD::mgmt::Account::Id"
+
+  ManagementCicdKeyArn:
+    Value: !Ref ManagementCicdKmsKeyArn
+    Export:
+      Name: !Sub "CICD::mgmt::KMS::Key::Arn"
+
+  ManagementArtifactsBucket:
+    Value: !Ref ManagementCicdArtifactsBucketName
+    Export:
+      Name: "CICD::mgmt::Bucket::Artifacts::Name"
+
+  ManagementCfnTemplatesBucket:
+    Value: !Ref ManagementCicdCfnTemplatesBucketName
+    Export:
+      Name: "CICD::mgmt::Bucket::CfnTemplates::Name"
+
+  ManagementArtifactsBucketArn:
+    Value: !Sub "arn:${AWS::Partition}:s3:::${ManagementCicdArtifactsBucketName}"
+    Export:
+      Name: "CICD::mgmt::Bucket::Artifacts::Arn"
+
+  ManagementCfnTemplatesBucketArn:
+    Value: !Sub "arn:${AWS::Partition}:s3:::${ManagementCicdCfnTemplatesBucketName}"
+    Export:
+      Name: "CICD::mgmt::Bucket::CfnTemplates::Arn"

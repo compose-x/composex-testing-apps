@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Template with shared resources for Codepipeline across AWS Accounts
+Parameters:
+  ProdAccountId:
+    Type: String
+    AllowedPattern: '[0-9]{12}'
+  NonProdAccountId:
+    Type: String
+    AllowedPattern: '[0-9]{12}'
+
+Resources:
+  KmsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: pipeline-kms-key
+        Statement:
+          - Sid: Allows admin of the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action:
+              - "kms:*"
+            Resource:
+              - "*"
+          - Sid: AllowKeyAccessFromExternalAccounts
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub "arn:aws:iam::${ProdAccountId}:root"
+                - !Sub "arn:aws:iam::${NonProdAccountId}:root"
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource:
+              - "*"
+
+  KmsAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub 'alias/CICD/KMS/KeyArn'
+      TargetKeyId: !Ref KmsKey
+
+Outputs:
+  KmsKeyArnMgmt:
+    Value: !GetAtt 'KmsKey.Arn'
+    Export:
+      Name: "CICD::mgmt::KMS::Key::Arn"

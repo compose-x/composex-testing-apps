@@ -1,0 +1,37 @@
+---
+# Docker compose override file for local development
+# Uses ECS Local Endpoints for IAM permissions exposure to the containers.
+# Run AWS_PROFILE=<profile_name> docker-compose up to pass on credentials from your profile
+# Prior to run it, in order to work, run the following local-endpoints.sh (as root).
+
+services:
+  ecs-local-endpoints:
+    image: amazon/amazon-ecs-local-container-endpoints
+    volumes:
+      - /var/run:/var/run
+      - $HOME/.aws/:/home/.aws/
+    environment:
+      ECS_LOCAL_METADATA_PORT: "51679"
+      HOME: "/home"
+      AWS_DEFAULT_REGION: "eu-west-1"
+      AWS_PROFILE: ${AWS_PROFILE:-default}
+    ports:
+      - 51679:51679
+
+  app01:
+    environment:
+      AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: "/creds"
+    depends_on:
+      - ecs-local-endpoints
+
+  app02:
+    environment:
+      AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: "/creds"
+    depends_on:
+      - ecs-local-endpoints
+
+  app03:
+    environment:
+      AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: "/creds"
+    depends_on:
+      - ecs-local-endpoints

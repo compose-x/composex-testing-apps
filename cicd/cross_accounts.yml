@@ -1,0 +1,342 @@
+Metadata:
+  Author: https://github.com/johnpreston
+
+Description:
+  IAM roles template for Cross-Accounts Codepipeline
+
+Resources:
+  KmsKeyAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: 'CicdKmsKeyAccess'
+      Roles:
+        - !Ref CloudformationRole
+        - !Ref CrossAccountRoleForPipeline
+        - !Ref CodeBuildRole
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: DecryptEncryptArtifacts
+            Effect: Allow
+            Action:
+              - kms:DescribeKey
+              - kms:GenerateDataKey*
+              - kms:Encrypt
+              - kms:ReEncrypt*
+              - kms:Decrypt
+            Resource:
+              - !ImportValue "CICD::mgmt::KMS::Key::Arn"
+
+  S3BucketsReadAccess:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+        - !Ref CloudformationRole
+        - !Ref CrossAccountRoleForPipeline
+        - !Ref CodeBuildRole
+      PolicyName: S3CicdBucketsReadAccess
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowAccessToBuckets
+            Action:
+              - s3:ListBucket
+              - s3:GetBucket*
+            Effect: Allow
+            Resource:
+              - Fn::Sub:
+                  - 'arn:${AWS::Partition}:s3:::${ArtifactsBucketName}'
+                  - ArtifactsBucketName: !ImportValue "CICD::mgmt::Bucket::Artifacts::Name"
+              - Fn::Sub:
+                  - 'arn:${AWS::Partition}:s3:::${CloudformationTemplatesBucketName}'
+                  - CloudformationTemplatesBucketName: !ImportValue "CICD::mgmt::Bucket::CfnTemplates::Name"
+          - Sid: RWArtifacts
+            Action:
+              - s3:GetObject*
+              - s3:ListBucket
+              - s3:GetBucket*
+              - s3:PutObject*
+            Effect: Allow
+            Resource:
+              - Fn::Sub:
+                  - 'arn:${AWS::Partition}:s3:::${ArtifactsBucketName}/*'
+                  - ArtifactsBucketName: !ImportValue "CICD::mgmt::Bucket::Artifacts::Name"
+          - Sid: ReadCfnBucket
+            Action:
+              - s3:GetObject*
+              - s3:ListBucket
+              - s3:GetBucket*
+            Effect: Allow
+            Resource:
+              - Fn::Sub:
+                  - 'arn:${AWS::Partition}:s3:::${CloudformationTemplatesBucketName}/*'
+                  - CloudformationTemplatesBucketName: !ImportValue "CICD::mgmt::Bucket::CfnTemplates::Name"
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - !Sub 'codebuild.${AWS::URLSuffix}'
+      Policies:
+        - PolicyName: CodeBuildRequirements
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: EC2VpcAccess
+                Effect: Allow
+                Resource:
+                  - "*"
+                Action:
+                  - ec2:CreateNetworkInterface
+                  - ec2:DescribeDhcpOptions
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DeleteNetworkInterface
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeVpcs
+              - Sid: VpCEniAccess
+                Effect: Allow
+                Resource:
+                  - "*"
+                Action:
+                  - ec2:CreateNetworkInterfacePermission
+                Condition:
+                  StringEquals:
+                    "ec2:AuthorizedService": !Sub "codebuild.${AWS::URLSuffix}"
+              - Sid: Ec2BasicReads
+                Effect: Allow
+                Resource:
+                  - '*'
+                Action:
+                  - ec2:DescribeAvailabilityZones
+                  - ec2:DescribeRegion*
+              - Sid: CloudFormationActions
+                Effect: Allow
+                Resource: '*'
+                Action:
+                  - cloudformation:Describe*
+                  - cloudformation:Get*
+                  - cloudformation:Validate*
+        - PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - codebuild:BatchGetBuild*
+                  - codebuild:StartBuild*
+                  - codebuild:Get*
+                  - codebuild:Describe*
+                Effect: Allow
+                Resource:
+                  - '*'
+          PolicyName: CodeBuildSelfAccessForAutomationTricksAndBatch
+
+  CloudformationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Policies:
+        - PolicyName: AllowCreateRole
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: AllowIamRoleCreation
+                Effect: Allow
+                Resource:
+                  - '*'
+                Action:
+                  - iam:GetRole
+                  - iam:UpdateAssumeRolePolicy
+                  - iam:ListRoleTags
+                  - iam:UntagRole
+                  - iam:TagRole
+                  - iam:PutRolePermissionsBoundary
+                  - iam:RemoveRoleFromInstanceProfile
+                  - iam:UpdateRoleDescription
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:AttachRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePermissionsBoundary
+                  - iam:AddRoleToInstanceProfile
+                  - iam:ListInstanceProfilesForRole
+                  - iam:PassRole
+                  - iam:CreateServiceLinkedRole
+                  - iam:DetachRolePolicy
+                  - iam:ListAttachedRolePolicies
+                  - iam:DeleteRolePolicy
+                  - iam:UpdateRole
+                  - iam:ListRolePolicies
+                  - iam:GetRolePolicy
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/PowerUserAccess
+      Tags:
+        - Key: costcentre
+          Value: !Ref 'CostcentreTag'
+        - Key: environment
+          Value: !Ref 'EnvironmentTag'
+        - Key: owner
+          Value: !Ref 'OwnerTag'
+        - Key: project
+          Value: !Ref 'ProjectTag'
+        - Key: LiveTag
+          Value: !Ref 'LiveTag'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - !Sub 'cloudformation.${AWS::URLSuffix}'
+            Condition:
+              Bool:
+                aws:SecureTransport: true
+
+  CrossAccountRoleForPipeline:
+    Type: AWS::IAM::Role
+    Properties:
+      Policies:
+        - PolicyName: AccessForCloudFormation
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action:
+                  - iam:PassRole
+                Condition:
+                  StringEqualsIfExists:
+                    iam:PassedToService:
+                      - !Sub 'cloudformation.${AWS::URLSuffix}'
+                Effect: Allow
+                Resource:
+                  - !GetAtt 'CloudformationRole.Arn'
+                Sid: AllowsPipelineToPassRoleToCfn
+              - Action:
+                  - cloudformation:CreateStack
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeStacks
+                  - cloudformation:UpdateStack
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:SetStackPolicy
+                  - cloudformation:ValidateTemplate
+                Effect: Allow
+                Resource: '*'
+                Sid: AllowsCloudFormationAccess
+              - Sid: AllowCodeBuildAccess
+                Action:
+                  - codebuild:BatchGetBuild*
+                  - codebuild:StartBuild*
+                  - codebuild:Get*
+                  - codebuild:Describe*
+                Effect: Allow
+                Resource: '*'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              AWS:
+                - Fn::Sub:
+                  - 'arn:${AWS::Partition}:iam::${CiAccountId}:root'
+                  - CiAccountId: !ImportValue "CICD::mgmt::Account::Id"
+            Condition:
+              Bool:
+                aws:SecureTransport: true
+      Tags:
+        - Key: costcentre
+          Value: !Ref 'CostcentreTag'
+        - Key: environment
+          Value: !Ref 'EnvironmentTag'
+        - Key: owner
+          Value: !Ref 'OwnerTag'
+        - Key: project
+          Value: !Ref 'ProjectTag'
+        - Key: LiveTag
+          Value: !Ref 'LiveTag'
+
+  CrossAccountRoleForReadOnly:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
+        - arn:aws:iam::aws:policy/ResourceGroupsandTagEditorReadOnlyAccess
+        - arn:aws:iam::aws:policy/IAMReadOnlyAccess
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              AWS:
+                - Fn::Sub:
+                  - 'arn:${AWS::Partition}:iam::${CiAccountId}:root'
+                  - CiAccountId: !ImportValue "CICD::mgmt::Account::Id"
+            Condition:
+              Bool:
+                aws:SecureTransport: true
+      Tags:
+        - Key: costcentre
+          Value: !Ref 'CostcentreTag'
+        - Key: environment
+          Value: !Ref 'EnvironmentTag'
+        - Key: owner
+          Value: !Ref 'OwnerTag'
+        - Key: project
+          Value: !Ref 'ProjectTag'
+        - Key: LiveTag
+          Value: !Ref 'LiveTag'
+
+Outputs:
+  CrossRoleName:
+    Value: !Ref CrossAccountRoleForPipeline
+  CrossRoleArn:
+    Value: !GetAtt 'CrossAccountRoleForPipeline.Arn'
+  CrossRoleId:
+    Value: !GetAtt 'CrossAccountRoleForPipeline.RoleId'
+
+  CrossReadOnlyRoleName:
+    Value: !Ref CrossAccountRoleForReadOnly
+  CrossReadOnlyRoleArn:
+    Value: !GetAtt 'CrossAccountRoleForReadOnly.Arn'
+  CrossReadOnlyRoleId:
+    Value: !GetAtt 'CrossAccountRoleForReadOnly.RoleId'
+
+  CfnRoleName:
+    Value: !Ref CloudformationRole
+    Export:
+      Name: !Sub 'CICD::${EnvironmentTag}::Cfn::Role::Name'
+  CfnRoleArn:
+    Value: !GetAtt 'CloudformationRole.Arn'
+    Export:
+      Name: !Sub 'CICD::${EnvironmentTag}::Cfn::Role::Arn'
+  CfnRoleId:
+    Value: !GetAtt 'CloudformationRole.RoleId'
+    Export:
+      Name: !Sub 'CICD::${EnvironmentTag}::Cfn::Role::Id'
+
+  CodebuildRoleName:
+    Value: !Ref 'CodeBuildRole'
+    Export:
+      Name: !Sub 'CICD::${EnvironmentTag}::Codebuild::Role::Name'
+  CodebuildRoleArn:
+    Value: !GetAtt 'CodeBuildRole.Arn'
+    Export:
+      Name: !Sub 'CICD::${EnvironmentTag}::Codebuild::Role::Arn'
+  CodebuildRoleRoleId:
+    Value: !GetAtt 'CodeBuildRole.RoleId'
+    Export:
+      Name: !Sub 'CICD::${EnvironmentTag}::Codebuild::Role::Id'

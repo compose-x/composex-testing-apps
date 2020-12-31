@@ -1,0 +1,18 @@
+Description: Cloudformation Template to create secret to store the github personal access token in secret manager for codepipeline.
+Parameters:
+  GithubPersonalAccessTokenSecretString:
+    Type: String
+    AllowedPattern: '[a-zA-Z90-9-.\/]+'
+    NoEcho: true
+
+Resources:
+   GithubPAT:
+    Type: 'AWS::SecretsManager::Secret'
+    Properties:
+        Name: /cicd/shared/github.com/token
+        Description: "This secret has github personal access token which helps pipeline to be able to access the github repositories"
+        SecretString: !Ref 'GithubPersonalAccessTokenSecretString'
+        KmsKeyId: !ImportValue "CICD::mgmt::KMS::Key::Arn"
+        Tags:
+          - Key: Name
+            Value: /cicd/shared/github.com/token
