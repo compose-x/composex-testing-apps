@@ -46,7 +46,7 @@ services:
     - 5000:5000
 
   app03:
-    image: ${REGISTRY_URI:-public.ecr.aws/w1m2m2a3/}blog-app02${IMAGE_TAG:-latest}
+    image: ${REGISTRY_URI:-public.ecr.aws/w1m2m2a3/}blog-app02:${IMAGE_TAG:-latest}
     build:
       context: ./app02
 #      dockerfile: Dockerfile
