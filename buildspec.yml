@@ -4,6 +4,8 @@
 version: 0.2
 env:
   shell: /bin/bash
+  variables:
+    DEPLOYMENT_NAME: composex-test-apps
 
 phases:
   install:
@@ -38,10 +40,10 @@ phases:
       - |
           if ! [ -d outputs ]; then mkdir -p outputs/{dev/stg/prod}; else find outputs -type f -print -delete ; fi
       - |
-          ecs-composex create -n ${DEPLOYMENT_NAME} --format yaml -f docker-compose.yml -f envs/dev.yml \
+          ecs-composex create -n ${DEPLOYMENT_NAME}-dev --format yaml -f docker-compose.yml -f envs/dev.yml \
           -b ${CFN_TPL_BUCKET} -d outputs/dev/
       - |
-          ecs-composex create -n ${DEPLOYMENT_NAME} --format yaml -f docker-compose.yml -f envs/stg.yml \
+          ecs-composex create -n ${DEPLOYMENT_NAME}-stg --format yaml -f docker-compose.yml -f envs/stg.yml \
           -b ${CFN_TPL_BUCKET} -d outputs/stg/
     finally:
       - rm -rfv $HOME/.docker
