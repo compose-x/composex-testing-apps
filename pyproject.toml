@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "composex-testing-apps"
+version = "0.1.0"
+description = ""
+authors = ["John Preston <john@ews-network.net>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+Flask = "^2.1.2"
+boto3 = "^1.24.7"
+Werkzeug = "^2.1.2"
+aws-xray-sdk = "^2.9.0"
+requests = "^2.28.0"
+codeguru-profiler-agent = "^1.2.4"
+supervisor = "^4.2.4"
+compose-x-common = "^1.0.1"
+
+[tool.poetry.dev-dependencies]
+black = "^22.3.0"
+isort = "^5.10.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+known_first_party = "kelvin"

@@ -9,3 +9,6 @@ if "LOGLEVEL" in os.environ and os.environ.get("LOGLEVEL").upper() == "DEBUG":
 if DEBUG:
     ENV = "development"
 
+AWS_CODEGURU_PROFILER_GROUP_NAME = os.environ.get(
+    "AWS_CODEGURU_PROFILER_GROUP_NAME", "test"
+)

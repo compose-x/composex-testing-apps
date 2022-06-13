@@ -1,25 +1,28 @@
-ARG BASE_IMAGE=public.ecr.aws/w1m2m2a3/python:3.8.5
+ARG BASE_IMAGE=public.ecr.aws/ews-network/python:3.8
 FROM $BASE_IMAGE
 
-ARG PYTHON=python3
+ARG PYTHON=python
 ENV PYTHON=$PYTHON
 
 RUN yum install shadow-utils -y && \
     groupadd -r app -g 1042 && useradd -u 1042 -r -g app -m -d /app -s /sbin/nologin -c "App user" app && chmod 755 /app && \
-    yum erase shadow-utils -y; yum clean all && \
+    yum erase shadow-utils -y; yum install curl -y; yum clean all && \
     (pip --version && pip install pip -U) || curl -sS https://bootstrap.pypa.io/get-pip.py | $PYTHON /opt/get-pip.py
 
-
+WORKDIR /app
 USER app
-ENV PATH=/app/.local/bin:$PATH
 
 COPY requirements.txt requirements.txt
-RUN pip install -r requirements.txt --user
 
-WORKDIR /app
-COPY app01 app01
+ENV PATH /app/.local/bin:$PATH
+RUN pip install --no-cache-dir -r requirements.txt --user
+
+COPY app app
 COPY config.py config.py
-COPY app.py app.py
+COPY start_app.py start_app.py
+COPY supervisord.config supervisord.config
+COPY entrypoint.sh entrypoint.sh
 
-EXPOSE 5000
-CMD $PYTHON /app/app.py
+
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["supervisord", "-n", "-c", "supervisord.config"]

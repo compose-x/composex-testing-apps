@@ -1,21 +1,8 @@
+import json
 
 import boto3
-import json
-from flask import Flask
 import requests
-from os import environ
-from aws_xray_sdk.core import patcher, xray_recorder
-patcher.patch(("requests", "boto3",))
-
-from flask import (
-    Flask,
-    jsonify,
-    request,
-    make_response,
-    render_template,
-    redirect,
-    flash,
-)
+from flask import Flask, jsonify, make_response
 
 APP = Flask(__name__)
 APP.config.from_object("config")
@@ -64,20 +51,18 @@ def query_date(date_format=None):
     """
     Function to query the date service
     """
-    if environ.get("TLD"):
-        date_app = f"dateteller.${environ.get('TLD')}"
-    else:
-        date_app = "dateteller"
-    if environ.get("DATETELLER_BACKEND"):
-        date_app = environ.get("DATETELLER_BACKEND")
+    date_app = APP.config["DATETELLER_BACKEND"]
+    APP.logger.debug(f"config.DATETELLER_BACKEND => {date_app}")
     protocol = "http://"
     date_port = 5000
     path = "/date"
     if date_format:
         path = f"{path}/{date_format}"
     response = {"date": "unknown"}
+    _url = f"{protocol}{date_app}:{date_port}{path}"
+    APP.logger.info(f"Attempting to call {_url}")
     try:
-        r_get = requests.get(f"{protocol}{date_app}:{date_port}{path}")
+        r_get = requests.get(_url)
         print(r_get)
         APP.logger.info(r_get)
         if 200 <= r_get.status_code < 230:

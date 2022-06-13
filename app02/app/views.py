@@ -2,10 +2,7 @@
 
 from datetime import datetime as dt
 
-from flask import (
-    jsonify,
-    make_response,
-)
+from flask import jsonify, make_response
 
 from . import APP
 

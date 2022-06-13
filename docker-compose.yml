@@ -4,17 +4,19 @@
 version: "3.8"
 services:
   rproxy:
+    image: ${REGISTRY_URI:-public.ecr.aws/johnpreston/}blog-rproxy:${IMAGE_TAG:-latest}
     build:
       context: ./reverse_proxy
       dockerfile: Dockerfile
     ports:
       - 80:80
       - 443:443
-    image: ${REGISTRY_URI:-public.ecr.aws/w1m2m2a3/}blog-rproxy:${IMAGE_TAG:-latest}
-
+    environment:
+      DEBUG: "true"
+      LOGLEVEL: DEBUG
 
   app01:
-    image: ${REGISTRY_URI:-public.ecr.aws/w1m2m2a3/}blog-app01:${IMAGE_TAG:-latest}
+    image: ${REGISTRY_URI:-public.ecr.aws/johnpreston/}blog-app01:${IMAGE_TAG:-latest}
     build:
       context: ./app01
       dockerfile: Dockerfile
@@ -27,10 +29,18 @@ services:
           memory: 128MB
           cpus: "0.25"
     ports:
-    - 5000:5000
+    - 5000
+    healthcheck: &supervisord_healthcheck
+      test:
+        - CMD-SHELL
+        - supervisorctl -c supervisord.config status
+      retries: 3
+      interval: 10s
+      timeout: 5s
+
 
   app02:
-    image: ${REGISTRY_URI:-public.ecr.aws/w1m2m2a3/}blog-app02:${IMAGE_TAG:-latest}
+    image: ${REGISTRY_URI:-public.ecr.aws/johnpreston/}blog-app02:${IMAGE_TAG:-latest}
     build:
       context: ./app02
 #      dockerfile: Dockerfile
@@ -43,10 +53,12 @@ services:
           memory: 128MB
           cpus: "0.25"
     ports:
-    - 5000:5000
+    - 5000
+    healthcheck:
+      <<: *supervisord_healthcheck
 
   app03:
-    image: ${REGISTRY_URI:-public.ecr.aws/w1m2m2a3/}blog-app02:${IMAGE_TAG:-latest}
+    image: ${REGISTRY_URI:-public.ecr.aws/johnpreston/}blog-app02:${IMAGE_TAG:-latest}
     build:
       context: ./app02
 #      dockerfile: Dockerfile
@@ -59,4 +71,6 @@ services:
           memory: 128MB
           cpus: "0.25"
     ports:
-    - 5000:5000
+    - 5000
+    healthcheck:
+      <<: *supervisord_healthcheck

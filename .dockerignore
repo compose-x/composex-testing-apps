@@ -3,9 +3,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Compose-X rendered templates
-templates/
-
 # C extensions
 *.so
 
@@ -132,4 +129,4 @@ dmypy.json
 .pyre/
 
 .idea/
-/codebuild_build.sh
+codebuild_build.sh

@@ -1,0 +1,112 @@
+---
+# Demo override file that demonstrates how to deploy services to AWS ECS + CloudMap + AppMesh.
+# app01 is placed behind an AWS ALB to allow ingress from the internet.
+# xray-daemon is enabled to capture traces if the application DEBUG is enabled.
+
+x-cloudmap:
+  PrivateNamespace:
+    ZoneName: test.lan
+
+services:
+  rproxy:
+    deploy:
+      labels:
+        ecs.task.family: app01
+  app01:
+    x-xray: True
+    x-network:
+      x-cloudmap: PrivateNamespace
+    x-ecs:
+      EnableExecuteCommand: true
+  app02:
+    x-xray: True
+    x-network:
+      x-cloudmap: PrivateNamespace
+    x-ecs:
+      EnableExecuteCommand: true
+  app03:
+    x-xray: True
+    x-network:
+      x-cloudmap: PrivateNamespace
+    x-ecs:
+      EnableExecuteCommand: true
+
+x-appmesh:
+  Properties: { }
+  Settings:
+    Nodes:
+      - Name: app03
+        Protocol: Tcp
+        Port: 5000
+      - Name: app02
+        Protocol: Http
+        Port: 5000
+      - Name: app01
+        Port: 5000
+        Protocol: Http
+        Backends:
+          - dateteller # Points to the dateteller Service, not Router!
+    Routers:
+      - Name: dateteller
+        Listener:
+          Port: 5000
+          Protocol: Http
+        Routes:
+          Http:
+            - Match:
+                Prefix: /date
+                Method: GET
+                Scheme: http
+              Nodes:
+                - Name: app02
+                  Weight: 1
+      - Name: datetellertcp
+        Listener:
+          Port: 5000
+          Protocol: Tcp
+        Routes:
+          Tcp:
+            - Nodes:
+                - Name: app03
+                  Weight: 1
+    Services:
+      - Name: api
+        Node: app01
+        x-cloudmap: PrivateNamespace
+      - Name: dateteller
+        Router: dateteller
+        x-cloudmap: PrivateNamespace
+
+
+x-elbv2:
+  public:
+    MacroParameters:
+      Ingress:
+        ExtSources:
+          - IPv4: 0.0.0.0/0
+            Name: ANY
+            Description: Allow from ANY
+    Properties:
+      Type: application
+      Scheme: internet-facing
+    Services:
+      - name: app01:rproxy
+        protocol: HTTP
+        port: 80
+        healthcheck:
+          HealthCheckEnabled: true
+          HealthCheckIntervalSeconds: 30
+          HealthCheckPath: /
+          HealthCheckPort: 80
+          HealthCheckProtocol: HTTP
+          HealthCheckTimeoutSeconds: 5
+          HealthyThresholdCount: 4
+          UnhealthyThresholdCount: 2
+          Matcher:
+            HttpCode: "200"
+    Listeners:
+      - Port: 80
+        Protocol: HTTP
+        Targets:
+          - name: app01:rproxy
+            access: /
