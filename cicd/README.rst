@@ -41,4 +41,4 @@ And that's it, you are ready to go to now use the template **release_pipeline.ym
 These templates were modified from the `original CICD Blog post`_. Refer to it for more details and explanations around
 IAM structure, S3 bucket and KMS key configurations.
 
-.. _original CICD Blog post: https://blog.ecs-composex.lambda-my-aws.io/posts/cicd-pipeline-for-multiple-services-on-aws-ecs-with-ecs-composex/
+.. _original CICD Blog post: https://blog.compose-x.io/posts/cicd-pipeline-for-multiple-services-on-aws-ecs-with-ecs-composex/index.html
